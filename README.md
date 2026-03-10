@@ -1,17 +1,17 @@
-# 🧠 WellSense — Student Mental Health Prediction
+# WellSense — Student Mental Health Prediction
 
 > A machine learning project for predicting depression risk in university students.  
 > University ML Assessment Project
 
 ---
 
-## 📌 Overview
+## Overview
 
 **WellSense** is a machine learning classification system that predicts whether a student is at risk of depression based on demographic and academic features. It trains and compares 7 classical ML models and deploys the best performer as an interactive Streamlit web application.
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 WellSense/
@@ -33,7 +33,7 @@ WellSense/
 
 ---
 
-## 📦 Dataset
+## Dataset
 
 | Detail | Info |
 |--------|------|
@@ -44,17 +44,17 @@ WellSense/
 
 ---
 
-## 🤖 ML Models
+## ML Models
 
-| Model | Syllabus Unit |
-|-------|--------------|
-| Logistic Regression | Unit II / III |
-| Decision Tree | Unit III |
-| Random Forest | Unit III |
-| Support Vector Machine (SVM) | Unit III |
-| k-Nearest Neighbors (k-NN) | Unit III |
-| Naive Bayes | Unit III |
-| MLP Neural Network | Unit IV |
+| Model  |
+|---------------------|
+| Logistic Regression  |
+| Decision Tree  |
+| Random Forest  |
+| Support Vector Machine (SVM)  |
+| k-Nearest Neighbors (k-NN)  |
+| Naive Bayes  |
+| MLP Neural Network  |
 
 ---
 
@@ -117,11 +117,4 @@ It is not a clinical diagnostic tool and should not replace professional mental 
 
 ---
 
-## 📋 Syllabus Coverage
 
-| Unit | Topics Covered |
-|------|----------------|
-| II | Data preprocessing, EDA, feature engineering |
-| III | Classification algorithms (LR, DT, RF, SVM, k-NN, NB) |
-| IV | Neural Networks — MLP Classifier |
-| V | Model evaluation, hyperparameter tuning, cross-validation, SMOTE |
