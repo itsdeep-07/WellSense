@@ -5,8 +5,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import os
+from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
+
+# ── Base directory (works both locally and on Streamlit Cloud) ────────────────
+BASE_DIR = Path(__file__).parent
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -77,12 +81,13 @@ st.markdown("""
 @st.cache_resource
 def load_artifacts():
     try:
-        model    = joblib.load('models/best_model.pkl')
-        scaler   = joblib.load('models/scaler.pkl')
-        encoders = joblib.load('models/label_encoders.pkl')
-        results  = joblib.load('models/results_df.pkl')
+        model    = joblib.load(BASE_DIR / 'models' / 'best_model.pkl')
+        scaler   = joblib.load(BASE_DIR / 'models' / 'scaler.pkl')
+        encoders = joblib.load(BASE_DIR / 'models' / 'label_encoders.pkl')
+        results  = joblib.load(BASE_DIR / 'models' / 'results_df.pkl')
         return model, scaler, encoders, results, True
     except Exception as e:
+        st.error(f"Model load error: {e}")
         return None, None, None, None, False
 
 
@@ -325,14 +330,14 @@ elif page == "📊 Model Performance":
     st.info("After running the notebook, charts will be saved in the `assets/` folder.")
 
     asset_files = {
-        'Target Distributions'  : 'assets/target_distributions.png',
-        'Demographics'          : 'assets/demographics.png',
-        'Depression Analysis'   : 'assets/depression_analysis.png',
-        'Correlation Heatmap'   : 'assets/correlation_heatmap.png',
-        'Feature Importance'    : 'assets/feature_importance.png',
-        'Model Comparison'      : 'assets/model_comparison.png',
-        'ROC-AUC Curves'        : 'assets/roc_auc_curves.png',
-        'Confusion Matrices'    : 'assets/confusion_matrices.png',
+        'Target Distributions'  : BASE_DIR / 'assets' / 'target_distributions.png',
+        'Demographics'          : BASE_DIR / 'assets' / 'demographics.png',
+        'Depression Analysis'   : BASE_DIR / 'assets' / 'depression_analysis.png',
+        'Correlation Heatmap'   : BASE_DIR / 'assets' / 'correlation_heatmap.png',
+        'Feature Importance'    : BASE_DIR / 'assets' / 'feature_importance.png',
+        'Model Comparison'      : BASE_DIR / 'assets' / 'model_comparison.png',
+        'ROC-AUC Curves'        : BASE_DIR / 'assets' / 'roc_auc_curves.png',
+        'Confusion Matrices'    : BASE_DIR / 'assets' / 'confusion_matrices.png',
     }
 
     cols = st.columns(2)
