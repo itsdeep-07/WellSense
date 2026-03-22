@@ -30,25 +30,25 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;1,400&family=Oswald:wght@500;600;700&display=swap');
 
 :root {
-    --cream:        #FDF4E3;
-    --cream-dark:   #EFE4D0;
-    --white:        #FFFFFF;
-    --green:        #4A7A3B;
-    --green-light:  #EBF1EA;
-    --green-dark:   #2A4A20;
-    --orange:       #ED7A2C;
-    --orange-hover: #D66922;
-    --orange-light: #FDEFE5;
-    --text:         #2A3324;
-    --muted:        #6B7A62;
-    --risk-high:    #E32B2B;
-    --risk-high-bg: #FCEAEA;
-    --radius-sm:    8px;
-    --radius-md:    16px;
-    --radius-pill:  999px;
-    --font-d:       'Oswald', sans-serif;
-    --font-b:       'Nunito', sans-serif;
-    --shadow:       0 4px 20px rgba(42,51,36,0.07);
+    --cream: #F0F2F8;
+    --cream-dark: #E4E8F3;
+    --white: #FFFFFF;
+    --green: #3B4FD4;
+    --green-light: #ECEFFE;
+    --green-dark: #1A1F4E;
+    --orange: #1ABFB0;
+    --orange-hover: #13A89A;
+    --orange-light: #E0F8F6;
+    --text: #1A1F4E;
+    --muted: #6B7599;
+    --risk-high: #D94040;
+    --risk-high-bg: #FDECEA;
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-pill: 999px;
+    --font-d: 'Oswald', sans-serif;
+    --font-b: 'Nunito', sans-serif;
+    --shadow: 0 4px 20px rgba(26,31,78,0.08);
 }
 
 /* ── Base ── */
@@ -56,7 +56,7 @@ html, body,
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 .main, .block-container {
-    background-color: var(--cream) !important;
+    background-color: #F0F2F8 !important;
     font-family: var(--font-b) !important;
     color: var(--text) !important;
 }
@@ -279,13 +279,19 @@ def load_artifacts():
         model    = joblib.load(BASE_DIR / 'models' / 'best_model.pkl')
         scaler   = joblib.load(BASE_DIR / 'models' / 'scaler.pkl')
         encoders = joblib.load(BASE_DIR / 'models' / 'label_encoders.pkl')
-        results  = joblib.load(BASE_DIR / 'models' / 'results_df.pkl')
         features = joblib.load(BASE_DIR / 'models' / 'features.pkl')
+        try:
+            results = joblib.load(BASE_DIR / 'models' / 'results_df.pkl')
+        except:
+            results = None
         return model, scaler, encoders, results, features, True
     except Exception as e:
+        print("LOAD ERROR:", e)
         return None, None, None, None, None, False
 
 model, scaler, label_encoders, results_df, FEATURES, model_loaded = load_artifacts()
+print("MODEL LOADED VALUE:", model_loaded)
+print("MODEL:", model)
 
 # ── Matplotlib warm theme ─────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -320,7 +326,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    page = st.radio("", [
+    page = st.radio("Navigation", [
         "Dashboard",
         "Model Metrics",
         "Predict",
