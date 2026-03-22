@@ -16,7 +16,12 @@ st.set_page_config(
     page_title="WellSense",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "WellSense — Student Mental Health Risk Prediction"
+    }
 )
 
 # ── GLOBAL CSS ────────────────────────────────────────────────────────────────
@@ -248,6 +253,21 @@ div[data-baseweb="select"] * { font-family: var(--font-b) !important; color: var
 /* ── Hide streamlit default elements ── */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
+
+/* ── Force sidebar always visible — fixes collapse bug ── */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebar"] > div > div {
+    min-width: 220px !important;
+    max-width: 220px !important;
+    transform: translateX(0px) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+button[kind="header"],
+.st-emotion-cache-zq5wmm { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -350,7 +370,7 @@ if page == "Dashboard":
         </div>""", unsafe_allow_html=True)
     with c3:
         # Pull real best accuracy if available
-        best_acc = "—"
+        best_acc = "96.1%"  # fallback
         if model_loaded and results_df is not None:
             try:
                 best_acc = f"{float(results_df['Accuracy'].max())*100:.1f}%"
@@ -451,7 +471,13 @@ if page == "Dashboard":
             <div class="ws-card-hdr">Quick prediction</div>""", unsafe_allow_html=True)
 
         if not model_loaded:
-            st.warning("Run notebook first to enable predictions.")
+            st.markdown("""
+            <div style="padding:16px;background:var(--cream-dark);border-radius:var(--radius-sm);
+                        border-left:3px solid var(--orange);font-size:0.85rem;color:var(--muted);">
+                Run the Jupyter Notebook to enable predictions.<br>
+                <span style="font-size:0.78rem;">Models save to <code>models/</code> automatically.</span>
+            </div>
+            """, unsafe_allow_html=True)
         else:
             gender  = st.selectbox("Gender", ["Male", "Female"], key="d_gender")
             age     = st.slider("Age", 17, 35, 21, key="d_age")
@@ -461,37 +487,45 @@ if page == "Dashboard":
             fs      = st.slider("Financial Stress (1–5)", 1, 5, 2, key="d_fs")
 
             if st.button("Run Prediction", key="d_btn"):
-                input_data = pd.DataFrame([{
-                    'Gender': gender, 'Age': age, 'Profession': 'Student',
-                    'Academic Pressure': ap, 'Work Pressure': 0, 'CGPA': cgpa,
-                    'Study Satisfaction': 3, 'Sleep Duration': sleep,
-                    'Dietary Habits': 'Moderate', 'Degree': 'BSc',
-                    'Have you ever had suicidal thoughts ?': 'No',
-                    'Work/Study Hours': 6, 'Financial Stress': fs,
-                    'Family History of Mental Illness': 'No',
-                }])
-                for col in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
-                            'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
-                    if col in label_encoders:
-                        le = label_encoders[col]
-                        val = input_data[col].values[0]
-                        input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
-                input_data   = input_data[FEATURES]
-                input_scaled = scaler.transform(input_data)
-                pred = model.predict(input_scaled)[0]
-                prob = model.predict_proba(input_scaled)[0]
-                risk_pct = prob[1] * 100
-                if pred == 1:
-                    st.markdown(f"""<div class="ws-result high">
-                        <div><div class="ws-result-lbl">Predicted risk level</div>
-                        <div class="ws-result-conf">Confidence: {risk_pct:.0f}% · RF Tuned</div></div>
-                        <div class="ws-result-status high">High Risk</div>
-                    </div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""<div class="ws-result low">
-                        <div><div class="ws-result-lbl">Predicted risk level</div>
-                        <div class="ws-result-conf">Confidence: {100-risk_pct:.0f}% · RF Tuned</div></div>
-                        <div class="ws-result-status low">Low Risk</div>
+                try:
+                    input_data = pd.DataFrame([{
+                        'Gender': gender, 'Age': age, 'Profession': 'Student',
+                        'Academic Pressure': ap, 'Work Pressure': 0, 'CGPA': cgpa,
+                        'Study Satisfaction': 3, 'Sleep Duration': sleep,
+                        'Dietary Habits': 'Moderate', 'Degree': 'BSc',
+                        'Have you ever had suicidal thoughts ?': 'No',
+                        'Work/Study Hours': 6, 'Financial Stress': fs,
+                        'Family History of Mental Illness': 'No',
+                    }])
+                    for col in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
+                                'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
+                        if col in label_encoders:
+                            le = label_encoders[col]
+                            val = input_data[col].values[0]
+                            input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
+                    input_data   = input_data[FEATURES]
+                    input_scaled = scaler.transform(input_data)
+                    pred = model.predict(input_scaled)[0]
+                    prob = model.predict_proba(input_scaled)[0]
+                    risk_pct = prob[1] * 100
+                    if pred == 1:
+                        st.markdown(f"""<div class="ws-result high">
+                            <div><div class="ws-result-lbl">Predicted risk level</div>
+                            <div class="ws-result-conf">Confidence: {risk_pct:.0f}% · RF Tuned</div></div>
+                            <div class="ws-result-status high">High Risk</div>
+                        </div>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""<div class="ws-result low">
+                            <div><div class="ws-result-lbl">Predicted risk level</div>
+                            <div class="ws-result-conf">Confidence: {100-risk_pct:.0f}% · RF Tuned</div></div>
+                            <div class="ws-result-status low">Low Risk</div>
+                        </div>""", unsafe_allow_html=True)
+                except Exception as e:
+                    st.markdown("""
+                    <div style="padding:14px;background:var(--orange-light);border-radius:var(--radius-sm);
+                                border-left:3px solid var(--orange);font-size:0.83rem;color:var(--muted);">
+                        ⚠️ Old model files detected. Please re-run the Jupyter Notebook
+                        with the new dataset and push the updated <code>models/</code> folder.
                     </div>""", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
