@@ -176,9 +176,9 @@ html, body,
 }
 .ws-form-val { color: var(--orange); font-family: var(--font-d); font-size: 1rem; font-weight: 700; }
 
-/* Override streamlit slider ── */
+/* Override streamlit slider and widget labels ── */
+label, label p, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] { font-family: var(--font-b) !important; font-weight: 600 !important; color: var(--text) !important; }
 [data-testid="stSlider"] > div > div > div > div { background: var(--green) !important; }
-[data-testid="stSlider"] label { font-family: var(--font-b) !important; font-weight: 600 !important; color: var(--text) !important; }
 div[data-baseweb="select"] > div { background: var(--cream) !important; border-color: rgba(42,51,36,0.2) !important; border-radius: var(--radius-sm) !important; }
 div[data-baseweb="select"] * { font-family: var(--font-b) !important; color: var(--text) !important; }
 
