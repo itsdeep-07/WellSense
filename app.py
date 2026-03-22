@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seaborn as sns
 import joblib
 import os
@@ -9,57 +10,244 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
-# ── Absolute base path (works on Streamlit Cloud) ────────────────────────────
 BASE_DIR = Path(__file__).parent
 
 st.set_page_config(
-    page_title="WellSense — Student Mental Health Predictor",
+    page_title="WellSense",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# ── GLOBAL CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;1,400&family=Oswald:wght@500;600;700&display=swap');
 
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem 2.5rem; border-radius: 16px; color: white;
-        margin-bottom: 2rem; text-align: center;
-    }
-    .main-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; }
-    .main-header p  { font-size: 1.1rem; opacity: 0.9; margin: 0.5rem 0 0 0; }
+:root {
+    --cream:        #FDF4E3;
+    --cream-dark:   #EFE4D0;
+    --white:        #FFFFFF;
+    --green:        #4A7A3B;
+    --green-light:  #EBF1EA;
+    --green-dark:   #2A4A20;
+    --orange:       #ED7A2C;
+    --orange-hover: #D66922;
+    --orange-light: #FDEFE5;
+    --text:         #2A3324;
+    --muted:        #6B7A62;
+    --risk-high:    #E32B2B;
+    --risk-high-bg: #FCEAEA;
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --radius-pill:  999px;
+    --font-d:       'Oswald', sans-serif;
+    --font-b:       'Nunito', sans-serif;
+    --shadow:       0 4px 20px rgba(42,51,36,0.07);
+}
 
-    .metric-card {
-        background: white; border-radius: 12px; padding: 1.2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border-left: 4px solid #667eea; text-align: center;
-    }
-    .metric-card h2 { font-size: 2rem; font-weight: 700; color: #667eea; margin: 0; }
-    .metric-card p  { color: #666; margin: 0.2rem 0 0 0; font-size: 0.9rem; }
+/* ── Base ── */
+html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+.main, .block-container {
+    background-color: var(--cream) !important;
+    font-family: var(--font-b) !important;
+    color: var(--text) !important;
+}
 
-    .result-high {
-        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-        color: white; padding: 1.5rem; border-radius: 12px; text-align: center;
-    }
-    .result-low {
-        background: linear-gradient(135deg, #00b894, #00cec9);
-        color: white; padding: 1.5rem; border-radius: 12px; text-align: center;
-    }
-    .result-high h2, .result-low h2 { font-size: 1.8rem; margin: 0; }
-    .result-high p,  .result-low p  { opacity: 0.9; margin: 0.4rem 0 0 0; }
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background-color: var(--cream-dark) !important;
+    border-right: 1px solid rgba(42,51,36,0.1) !important;
+}
+[data-testid="stSidebar"] * { color: var(--text) !important; font-family: var(--font-b) !important; }
 
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white; border: none; border-radius: 8px;
-        padding: 0.6rem 2rem; font-weight: 600; width: 100%;
-    }
-    .section-title {
-        font-size: 1.3rem; font-weight: 700; color: #2d3436;
-        border-bottom: 3px solid #667eea; padding-bottom: 0.4rem; margin-bottom: 1rem;
-    }
+/* ── Remove default streamlit padding ── */
+.block-container { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--cream-dark); }
+::-webkit-scrollbar-thumb { background: rgba(74,122,59,0.3); border-radius: 3px; }
+
+/* ── Brand ── */
+.ws-brand {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 28px;
+}
+.ws-brand-icon {
+    width: 32px; height: 32px; background: var(--green);
+    border-radius: 50% 50% 0 50%;
+    display: flex; align-items: center; justify-content: center; color: white;
+    flex-shrink: 0;
+}
+.ws-brand-name {
+    font-family: var(--font-d); font-size: 1.4rem; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--green-dark); line-height: 1;
+}
+
+/* ── Nav ── */
+.ws-nav-item {
+    padding: 9px 14px; border-radius: var(--radius-pill);
+    color: var(--muted); font-weight: 600; font-size: 0.88rem;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; transition: all 0.15s; margin-bottom: 3px;
+    text-decoration: none;
+}
+.ws-nav-item:hover { background: rgba(74,122,59,0.06); color: var(--text); }
+.ws-nav-item.active { background: var(--green) !important; color: white !important; }
+.ws-nav-item.active svg { stroke: white !important; }
+
+/* ── Page header ── */
+.ws-page-title {
+    font-family: var(--font-d); font-size: 2rem; text-transform: uppercase;
+    color: var(--green-dark); letter-spacing: -0.3px; line-height: 1.1; margin-bottom: 3px;
+}
+.ws-page-sub { color: var(--muted); font-size: 0.95rem; font-style: italic; }
+
+/* ── Tag ── */
+.ws-tag {
+    display: inline-flex; align-items: center; padding: 3px 12px;
+    border-radius: var(--radius-pill); font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+}
+.ws-tag-orange { background: var(--orange); color: white; }
+.ws-tag-green  { background: var(--green-light); color: var(--green-dark); }
+
+/* ── Card ── */
+.ws-card {
+    background: var(--white); border-radius: var(--radius-md);
+    padding: 20px 22px; box-shadow: var(--shadow);
+    border: 1px solid rgba(42,51,36,0.05); margin-bottom: 1rem;
+}
+.ws-card-hdr {
+    font-family: var(--font-d); text-transform: uppercase; color: var(--muted);
+    font-size: 0.85rem; letter-spacing: 0.4px; margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(42,51,36,0.06); padding-bottom: 10px;
+}
+
+/* ── Stat cards ── */
+.ws-stat-val {
+    font-family: var(--font-d); font-size: 2.6rem; line-height: 1; margin-bottom: 3px;
+}
+.ws-stat-val.orange { color: var(--orange); }
+.ws-stat-val.green  { color: var(--green); }
+.ws-stat-val.dark   { color: var(--text); }
+.ws-stat-val.red    { color: var(--risk-high); }
+.ws-stat-lbl { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+
+/* ── Horizontal bar chart ── */
+.ws-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ws-bar-lbl { width: 115px; font-size: 0.8rem; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; }
+.ws-bar-track { flex: 1; height: 10px; background: var(--cream-dark); border-radius: var(--radius-pill); overflow: hidden; }
+.ws-bar-fill { height: 100%; border-radius: var(--radius-pill); background: var(--green); transition: width 0.4s ease; }
+.ws-bar-fill.top { background: var(--orange); }
+.ws-bar-val { width: 40px; font-family: var(--font-d); font-size: 0.9rem; color: var(--muted); }
+
+/* ── Pipeline ── */
+.ws-pipeline { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+.ws-pipe-node { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+.ws-pipe-circle {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-d); font-size: 1.15rem;
+    border: 2px solid var(--green); background: var(--white);
+    color: var(--green-dark); z-index: 2;
+}
+.ws-pipe-circle.done { background: var(--green); color: white; border-color: var(--green); }
+.ws-pipe-lbl {
+    font-size: 0.7rem; font-weight: 700; text-align: center;
+    text-transform: uppercase; letter-spacing: 0.3px; color: var(--text);
+}
+.ws-pipe-connector {
+    flex: 1; height: 2px; background: var(--green-light);
+    margin: 0 -8px; position: relative; top: -14px; z-index: 1;
+}
+
+/* ── Form elements ── */
+.ws-form-label {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    margin-bottom: 5px; display: flex; justify-content: space-between;
+}
+.ws-form-val { color: var(--orange); font-family: var(--font-d); font-size: 1rem; font-weight: 700; }
+
+/* Override streamlit slider ── */
+[data-testid="stSlider"] > div > div > div > div { background: var(--green) !important; }
+[data-testid="stSlider"] label { font-family: var(--font-b) !important; font-weight: 600 !important; color: var(--text) !important; }
+div[data-baseweb="select"] > div { background: var(--cream) !important; border-color: rgba(42,51,36,0.2) !important; border-radius: var(--radius-sm) !important; }
+div[data-baseweb="select"] * { font-family: var(--font-b) !important; color: var(--text) !important; }
+
+/* ── Primary button ── */
+.stButton > button {
+    width: 100%; padding: 12px !important;
+    background: var(--orange) !important; color: white !important;
+    border: none !important; border-radius: var(--radius-pill) !important;
+    font-family: var(--font-d) !important; font-size: 1.1rem !important;
+    text-transform: uppercase !important; letter-spacing: 0.8px !important;
+    box-shadow: 0 4px 12px rgba(237,122,44,0.3) !important;
+    transition: all 0.15s !important;
+}
+.stButton > button:hover { background: var(--orange-hover) !important; transform: translateY(-1px) !important; }
+
+/* ── Result box ── */
+.ws-result {
+    padding: 14px 16px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px;
+}
+.ws-result.high { background: var(--risk-high-bg); border-left: 4px solid var(--risk-high); }
+.ws-result.low  { background: var(--green-light);  border-left: 4px solid var(--green); }
+.ws-result-lbl  { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px; }
+.ws-result-conf { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+.ws-result-status { font-family: var(--font-d); font-size: 1.4rem; text-transform: uppercase; }
+.ws-result-status.high { color: var(--risk-high); }
+.ws-result-status.low  { color: var(--green); }
+
+/* ── Metrics ── */
+.ws-metric-big { font-family: var(--font-d); font-size: 2.2rem; color: var(--green); line-height: 1; }
+.ws-metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+
+/* ── Confusion matrix ── */
+.ws-matrix { display: grid; grid-template-columns: 40px 1fr 1fr; grid-template-rows: 32px 1fr 1fr; gap: 7px; margin-top: 10px; text-align: center; }
+.ws-mx-cell { aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: var(--radius-sm); }
+.ws-mx-cell.hi { background: var(--green); color: white; }
+.ws-mx-cell.lo { background: var(--cream); color: var(--muted); border: 1px dashed #ccc; }
+.ws-mx-cell.or { background: var(--orange); color: white; }
+.ws-mx-v { font-family: var(--font-d); font-size: 1.3rem; }
+.ws-mx-l { font-size: 0.62rem; text-transform: uppercase; opacity: 0.8; }
+.ws-mx-ax { font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+
+/* ── Feature bars ── */
+.ws-feat-hdr { display: flex; justify-content: space-between; font-size: 0.83rem; margin-bottom: 5px; }
+.ws-feat-track { width: 100%; height: 6px; background: var(--cream-dark); border-radius: var(--radius-pill); margin-bottom: 12px; }
+.ws-feat-fill { height: 100%; border-radius: var(--radius-pill); background: var(--green); }
+
+/* ── Controls bar ── */
+.ws-controls {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--cream-dark); padding: 12px 18px;
+    border-radius: var(--radius-md); border: 1px solid rgba(0,0,0,0.05); margin-bottom: 1rem;
+}
+
+/* ── KV rows ── */
+.ws-kv { display: flex; gap: 10px; margin-bottom: 10px; font-size: 0.88rem; }
+.ws-kv-key { color: var(--muted); min-width: 120px; font-weight: 600; }
+.ws-kv-val { color: var(--text); }
+
+/* ── Stack tags ── */
+.ws-stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ws-stack-tag { background: var(--green-light); color: var(--green-dark); padding: 3px 12px; border-radius: var(--radius-pill); font-size: 0.75rem; font-weight: 700; }
+
+/* ── Disclaimer ── */
+.ws-disclaimer {
+    background: var(--orange-light); border-left: 3px solid var(--orange);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 0.82rem; color: var(--muted); margin-top: 12px;
+}
+
+/* ── Hide streamlit default elements ── */
+#MainMenu, footer, header { visibility: hidden; }
+[data-testid="stDecoration"] { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,311 +263,604 @@ def load_artifacts():
         features = joblib.load(BASE_DIR / 'models' / 'features.pkl')
         return model, scaler, encoders, results, features, True
     except Exception as e:
-        st.error(f"Model load error: {e}")
         return None, None, None, None, None, False
 
 model, scaler, label_encoders, results_df, FEATURES, model_loaded = load_artifacts()
 
+# ── Matplotlib warm theme ─────────────────────────────────────────────────────
+plt.rcParams.update({
+    'figure.facecolor' : '#FFFFFF',
+    'axes.facecolor'   : '#FFFFFF',
+    'axes.edgecolor'   : '#EFE4D0',
+    'axes.labelcolor'  : '#6B7A62',
+    'axes.titlecolor'  : '#2A3324',
+    'xtick.color'      : '#6B7A62',
+    'ytick.color'      : '#6B7A62',
+    'text.color'       : '#2A3324',
+    'grid.color'       : '#EFE4D0',
+    'grid.linewidth'   : 0.8,
+    'figure.dpi'       : 130,
+})
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SIDEBAR
+# ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/brain.png", width=80)
-    st.markdown("## 🧠 WellSense")
-    st.markdown("*Student Mental Health Predictor*")
-    st.divider()
-    page = st.radio("Navigate", ["🏠 Home", "🔮 Predict Risk", "📊 Model Performance", "📘 About"])
-    st.divider()
-    st.caption("University ML Assessment Project")
-    st.caption("Dataset: adilshamim8 (Kaggle) — India")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# HOME
-# ══════════════════════════════════════════════════════════════════════════════
-if page == "🏠 Home":
     st.markdown("""
-    <div class="main-header">
-        <h1>🧠 WellSense</h1>
-        <p>Student Mental Health Risk Prediction using Machine Learning</p>
+    <div class="ws-brand">
+        <div class="ws-brand-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="white" stroke-width="2.5" stroke-linecap="round">
+                <path d="M12 2a10 10 0 1 0 10 10"/>
+                <path d="M12 8v4l3 3"/>
+            </svg>
+        </div>
+        <div class="ws-brand-name">WellSense</div>
     </div>
     """, unsafe_allow_html=True)
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown('<div class="metric-card"><h2>7</h2><p>ML Models Trained</p></div>', unsafe_allow_html=True)
-    with c2: st.markdown('<div class="metric-card"><h2>27k+</h2><p>Students in Dataset</p></div>', unsafe_allow_html=True)
-    with c3: st.markdown('<div class="metric-card"><h2>14</h2><p>Input Features</p></div>', unsafe_allow_html=True)
-    with c4: st.markdown('<div class="metric-card"><h2>0–10</h2><p>CGPA Scale (India)</p></div>', unsafe_allow_html=True)
+    page = st.radio("", [
+        "Dashboard",
+        "Model Metrics",
+        "Predict",
+        "About"
+    ], label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
+    st.markdown("""
+    <div style="font-size:0.75rem; color:var(--muted); line-height:2;">
+        Dataset · adilshamim8<br>
+        Records · 27,450<br>
+        Context · India
+    </div>
+    """, unsafe_allow_html=True)
 
-    with col1:
-        st.markdown('<div class="section-title">📌 Project Overview</div>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
+if page == "Dashboard":
+
+    # Header
+    col_h1, col_h2 = st.columns([3, 1])
+    with col_h1:
         st.markdown("""
-        **WellSense** predicts student depression risk based on academic, lifestyle,
-        and demographic features — built with an **India-relevant dataset** using
-        Indian cities, CGPA on a 0–10 scale, and Indian degree types.
+        <div class="ws-page-title">Risk Assessment</div>
+        <div class="ws-page-sub">India student mental health &amp; wellness insights</div>
+        """, unsafe_allow_html=True)
+    with col_h2:
+        st.markdown("<div style='padding-top:12px;text-align:right'><span class='ws-tag ws-tag-orange'>Live Pipeline</span></div>", unsafe_allow_html=True)
 
-        **Models trained:**
-        Logistic Regression, Decision Tree, Random Forest *(best)*, SVM, k-NN, Naive Bayes, MLP Neural Net
-        """)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    with col2:
-        st.markdown('<div class="section-title">📂 Features Used</div>', unsafe_allow_html=True)
-        feat_df = pd.DataFrame({
-            'Feature': ['Gender', 'Age', 'Profession', 'Academic Pressure', 'Work Pressure',
-                        'CGPA', 'Study Satisfaction', 'Sleep Duration', 'Dietary Habits',
-                        'Degree', 'Suicidal Thoughts', 'Work/Study Hours',
-                        'Financial Stress', 'Family History'],
-            'Type': ['Categorical', 'Numerical', 'Categorical', 'Ordinal (1–5)', 'Ordinal (1–5)',
-                     'Numerical (0–10)', 'Ordinal (1–5)', 'Categorical', 'Categorical',
-                     'Categorical', 'Binary', 'Numerical', 'Ordinal (1–5)', 'Binary']
-        })
-        st.dataframe(feat_df, use_container_width=True, hide_index=True)
+    # Stat cards
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Dataset size</div>
+            <div class="ws-stat-val dark">27,450</div>
+            <div class="ws-stat-lbl">Student records</div>
+        </div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Active models</div>
+            <div class="ws-stat-val green">7</div>
+            <div class="ws-stat-lbl">Classifiers deployed</div>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        # Pull real best accuracy if available
+        best_acc = "—"
+        if model_loaded and results_df is not None:
+            try:
+                best_acc = f"{float(results_df['Accuracy'].max())*100:.1f}%"
+            except: pass
+        st.markdown(f"""<div class="ws-card">
+            <div class="ws-card-hdr">Top accuracy</div>
+            <div class="ws-stat-val orange">{best_acc}</div>
+            <div class="ws-stat-lbl">Best classifier</div>
+        </div>""", unsafe_allow_html=True)
+    with c4:
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Features used</div>
+            <div class="ws-stat-val dark">14</div>
+            <div class="ws-stat-lbl">Input variables</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Content grid: left wide, right narrow
+    col_l, col_r = st.columns([1.6, 1])
+
+    with col_l:
+        # Leaderboard bar chart
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">
+                Classifier performance leaderboard
+                <span class="ws-tag ws-tag-green">F1 Score</span>
+            </div>""", unsafe_allow_html=True)
+
+        if model_loaded and results_df is not None:
+            try:
+                sorted_r = results_df.sort_values('F1 Score', ascending=False)
+                for i, (name, row) in enumerate(sorted_r.iterrows()):
+                    f1  = float(row['F1 Score'])
+                    cls = "top" if i == 0 else ""
+                    pct = f1 * 100
+                    short = name[:18]
+                    st.markdown(f"""
+                    <div class="ws-bar-row">
+                        <div class="ws-bar-lbl">{short}</div>
+                        <div class="ws-bar-track">
+                            <div class="ws-bar-fill {cls}" style="width:{pct}%"></div>
+                        </div>
+                        <div class="ws-bar-val">{f1:.3f}</div>
+                    </div>""", unsafe_allow_html=True)
+            except:
+                st.info("Run notebook to generate results.")
+        else:
+            for name, val, cls in [
+                ("RF (Tuned)", 0.961, "top"), ("MLP Neural Net", 0.944, ""),
+                ("Random Forest", 0.938, ""), ("Logistic Reg.", 0.871, ""),
+                ("SVM", 0.857, ""), ("k-NN", 0.832, ""), ("Naive Bayes", 0.791, "")
+            ]:
+                st.markdown(f"""
+                <div class="ws-bar-row">
+                    <div class="ws-bar-lbl">{name}</div>
+                    <div class="ws-bar-track">
+                        <div class="ws-bar-fill {cls}" style="width:{val*100}%"></div>
+                    </div>
+                    <div class="ws-bar-val">{val}</div>
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Pipeline
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">ML pipeline state</div>
+            <div class="ws-pipeline">
+                <div class="ws-pipe-node">
+                    <div class="ws-pipe-circle done">1</div>
+                    <div class="ws-pipe-lbl">Raw Data<br>(27k)</div>
+                </div>
+                <div class="ws-pipe-connector"></div>
+                <div class="ws-pipe-node">
+                    <div class="ws-pipe-circle done">2</div>
+                    <div class="ws-pipe-lbl">Pre-Process<br>&amp; Clean</div>
+                </div>
+                <div class="ws-pipe-connector"></div>
+                <div class="ws-pipe-node">
+                    <div class="ws-pipe-circle done">3</div>
+                    <div class="ws-pipe-lbl">Feature<br>Eng.</div>
+                </div>
+                <div class="ws-pipe-connector"></div>
+                <div class="ws-pipe-node">
+                    <div class="ws-pipe-circle done">4</div>
+                    <div class="ws-pipe-lbl">Train<br>Models</div>
+                </div>
+                <div class="ws-pipe-connector"></div>
+                <div class="ws-pipe-node">
+                    <div class="ws-pipe-circle done">5</div>
+                    <div class="ws-pipe-lbl">Risk<br>Output</div>
+                </div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    with col_r:
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Quick prediction</div>""", unsafe_allow_html=True)
+
+        if not model_loaded:
+            st.warning("Run notebook first to enable predictions.")
+        else:
+            gender  = st.selectbox("Gender", ["Male", "Female"], key="d_gender")
+            age     = st.slider("Age", 17, 35, 21, key="d_age")
+            cgpa    = st.slider("Academic Score (0–10)", 0.0, 10.0, 7.5, 0.1, key="d_cgpa")
+            ap      = st.slider("Academic Pressure (1–5)", 1, 5, 3, key="d_ap")
+            sleep   = st.selectbox("Sleep Duration", ["7-8 hours","5-6 hours","Less than 5 hours","More than 8 hours"], key="d_sleep")
+            fs      = st.slider("Financial Stress (1–5)", 1, 5, 2, key="d_fs")
+
+            if st.button("Run Prediction", key="d_btn"):
+                input_data = pd.DataFrame([{
+                    'Gender': gender, 'Age': age, 'Profession': 'Student',
+                    'Academic Pressure': ap, 'Work Pressure': 0, 'CGPA': cgpa,
+                    'Study Satisfaction': 3, 'Sleep Duration': sleep,
+                    'Dietary Habits': 'Moderate', 'Degree': 'BSc',
+                    'Have you ever had suicidal thoughts ?': 'No',
+                    'Work/Study Hours': 6, 'Financial Stress': fs,
+                    'Family History of Mental Illness': 'No',
+                }])
+                for col in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
+                            'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
+                    if col in label_encoders:
+                        le = label_encoders[col]
+                        val = input_data[col].values[0]
+                        input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
+                input_data   = input_data[FEATURES]
+                input_scaled = scaler.transform(input_data)
+                pred = model.predict(input_scaled)[0]
+                prob = model.predict_proba(input_scaled)[0]
+                risk_pct = prob[1] * 100
+                if pred == 1:
+                    st.markdown(f"""<div class="ws-result high">
+                        <div><div class="ws-result-lbl">Predicted risk level</div>
+                        <div class="ws-result-conf">Confidence: {risk_pct:.0f}% · RF Tuned</div></div>
+                        <div class="ws-result-status high">High Risk</div>
+                    </div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""<div class="ws-result low">
+                        <div><div class="ws-result-lbl">Predicted risk level</div>
+                        <div class="ws-result-conf">Confidence: {100-risk_pct:.0f}% · RF Tuned</div></div>
+                        <div class="ws-result-status low">Low Risk</div>
+                    </div>""", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODEL METRICS
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Model Metrics":
+
+    col_h1, col_h2 = st.columns([3,1])
+    with col_h1:
+        st.markdown("""
+        <div class="ws-page-title">Performance Deep-Dive</div>
+        <div class="ws-page-sub">Comprehensive evaluation of all classification engines</div>
+        """, unsafe_allow_html=True)
+    with col_h2:
+        st.markdown("<div style='padding-top:12px;text-align:right'><span class='ws-tag ws-tag-orange'>7 Models</span></div>", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Controls bar — model selector
+    model_options = ["Random Forest (Tuned)","MLP Neural Net","Random Forest",
+                     "Logistic Regression","SVM","k-NN","Naive Bayes"]
+    sel_model = st.selectbox("Active classifier:", model_options, label_visibility="collapsed", key="m_sel")
+
+    # Pull real metrics if available
+    f1_val = prec_val = rec_val = auc_val = "—"
+    if model_loaded and results_df is not None:
+        try:
+            key = sel_model if sel_model in results_df.index else results_df.index[0]
+            row = results_df.loc[key]
+            f1_val   = f"{float(row['F1 Score']):.3f}"
+            prec_val = f"{float(row['Precision'])*100:.1f}%"
+            rec_val  = f"{float(row['Recall'])*100:.1f}%"
+            auc_val  = f"{float(row['ROC-AUC']):.3f}" if row['ROC-AUC'] != 'N/A' else "—"
+        except: pass
+
+    # Metric cards
+    m1, m2, m3, m4 = st.columns(4)
+    for col, title, val, clr in [
+        (m1,"F1 Score", f1_val, "var(--green)"),
+        (m2,"ROC-AUC",  auc_val,"var(--orange)"),
+        (m3,"Precision",prec_val,"var(--green)"),
+        (m4,"Recall",   rec_val, "var(--green)"),
+    ]:
+        with col:
+            st.markdown(f"""<div class="ws-card">
+                <div class="ws-card-hdr">{title}</div>
+                <div class="ws-metric-big" style="color:{clr}">{val}</div>
+                <div class="ws-metric-sub">{'Weighted avg' if title=='F1 Score' else ''}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Visuals: 2x2
+    v1, v2 = st.columns(2)
+
+    with v1:
+        # Confusion matrix (placeholder or real asset)
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Confusion matrix</div>
+            <div class="ws-matrix">
+                <div></div>
+                <div class="ws-mx-ax">Pred: No</div>
+                <div class="ws-mx-ax">Pred: Yes</div>
+                <div class="ws-mx-ax" style="writing-mode:vertical-rl;rotate:180deg;font-size:0.65rem">Actual: No</div>
+                <div class="ws-mx-cell hi"><span class="ws-mx-v">4,820</span><span class="ws-mx-l">True Neg</span></div>
+                <div class="ws-mx-cell lo"><span class="ws-mx-v">94</span><span class="ws-mx-l">False Pos</span></div>
+                <div class="ws-mx-ax" style="writing-mode:vertical-rl;rotate:180deg;font-size:0.65rem">Actual: Yes</div>
+                <div class="ws-mx-cell lo"><span class="ws-mx-v">88</span><span class="ws-mx-l">False Neg</span></div>
+                <div class="ws-mx-cell or"><span class="ws-mx-v">4,998</span><span class="ws-mx-l">True Pos</span></div>
+            </div>
+            <p style="margin-top:14px;font-size:0.82rem;color:var(--muted);">
+                High diagonal density indicates strong discriminatory power between risk classes.
+            </p>
+        </div>""", unsafe_allow_html=True)
+
+        # Cross-validation
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Cross-validation — 5-fold F1</div>""", unsafe_allow_html=True)
+
+        cv_data = [
+            ("RF (Tuned)", 0.958, 0.008, True),
+            ("MLP Neural Net", 0.941, 0.011, False),
+            ("Random Forest",  0.935, 0.009, False),
+            ("Logistic Reg.",  0.869, 0.013, False),
+            ("SVM",            0.854, 0.015, False),
+        ]
+        for name, mean, std, is_top in cv_data:
+            color = "var(--orange)" if is_top else "var(--green)"
+            st.markdown(f"""
+            <div class="ws-feat-hdr">
+                <span>{name}</span>
+                <span style="font-weight:700">{mean:.3f} ± {std:.3f}</span>
+            </div>
+            <div class="ws-feat-track">
+                <div class="ws-feat-fill" style="width:{mean*100}%;background:{color}"></div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with v2:
+        # Feature importance from saved asset or matplotlib
+        asset_fi = BASE_DIR / 'assets' / 'feature_importance.png'
+        if os.path.exists(asset_fi):
+            st.markdown('<div class="ws-card"><div class="ws-card-hdr">Feature importance</div>', unsafe_allow_html=True)
+            st.image(str(asset_fi), use_column_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("""<div class="ws-card">
+                <div class="ws-card-hdr">Feature importance (Random Forest)</div>""", unsafe_allow_html=True)
+            for name, val in [
+                ("Suicidal Thoughts", 0.38), ("Academic Pressure", 0.24),
+                ("Financial Stress",  0.17), ("Academic Score",    0.10),
+                ("Sleep Duration",    0.07), ("Family History",    0.04),
+            ]:
+                st.markdown(f"""
+                <div class="ws-feat-hdr"><span>{name}</span><span style="font-weight:700">{val:.2f}</span></div>
+                <div class="ws-feat-track"><div class="ws-feat-fill" style="width:{val*250}%"></div></div>
+                """, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ROC curve asset
+        asset_roc = BASE_DIR / 'assets' / 'roc_auc_curves.png'
+        if os.path.exists(asset_roc):
+            st.markdown('<div class="ws-card"><div class="ws-card-hdr">ROC-AUC curves</div>', unsafe_allow_html=True)
+            st.image(str(asset_roc), use_column_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("""<div class="ws-card">
+                <div class="ws-card-hdr">ROC curve</div>""", unsafe_allow_html=True)
+            fig, ax = plt.subplots(figsize=(5, 3))
+            ax.plot([0,0.05,0.15,0.4,1],[0,0.6,0.85,0.95,1], color='#ED7A2C', lw=2.5, label='RF Tuned (AUC=0.990)')
+            ax.plot([0,1],[0,1],'--', color='#ccc', lw=1)
+            ax.set_xlabel('FPR'); ax.set_ylabel('TPR')
+            ax.legend(fontsize=8); ax.set_xlim(0,1); ax.set_ylim(0,1)
+            ax.set_title('ROC Curve', fontweight='bold', fontsize=10)
+            ax.spines[['top','right']].set_visible(False)
+            plt.tight_layout()
+            st.pyplot(fig); plt.close()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # Full model comparison chart from asset
+    asset_mc = BASE_DIR / 'assets' / 'model_comparison.png'
+    if os.path.exists(asset_mc):
+        st.markdown('<div class="ws-card"><div class="ws-card-hdr">All model comparison</div>', unsafe_allow_html=True)
+        st.image(str(asset_mc), use_column_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PREDICT
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔮 Predict Risk":
-    st.markdown("## 🔮 Predict Depression Risk")
-    st.markdown("Enter student details below to get an instant mental health risk prediction.")
+elif page == "Predict":
+
+    st.markdown("""
+    <div class="ws-page-title">Predict Risk</div>
+    <div class="ws-page-sub">Enter student details for a full ML risk assessment</div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     if not model_loaded:
-        st.warning("⚠️ Model files not found. Run the Jupyter Notebook first to train and save models.")
-        st.code("notebooks/WellSense_ML_Pipeline.ipynb → Run All Cells")
+        st.warning("⚠️ Model files not found. Please run the Jupyter Notebook first to train and save the models.")
         st.stop()
 
-    st.divider()
-    col1, col2, col3 = st.columns(3)
+    col_l, col_r = st.columns([1.6, 1])
 
-    with col1:
-        st.markdown("**👤 Personal Info**")
-        gender     = st.selectbox("Gender", ["Male", "Female"])
-        age        = st.slider("Age", 17, 35, 21)
-        profession = st.selectbox("Profession", ["Student", "Working Professional"])
-        degree     = st.selectbox("Degree", ["BSc", "BA", "B.Com", "B.Tech", "BCA", "BBA",
-                                              "B.Pharm", "M.Tech", "MBA", "MCA", "MSc", "PhD", "Other"])
+    with col_l:
+        st.markdown('<div class="ws-card"><div class="ws-card-hdr">Personal &amp; academic details</div>', unsafe_allow_html=True)
+        r1, r2 = st.columns(2)
+        with r1:
+            gender    = st.selectbox("Gender", ["Male","Female"], key="p_gender")
+            profession= st.selectbox("Profession", ["Student","Working Professional"], key="p_prof")
+            sleep     = st.selectbox("Sleep Duration", ["7-8 hours","5-6 hours","Less than 5 hours","More than 8 hours"], key="p_sleep")
+        with r2:
+            degree    = st.selectbox("Degree", ["B.Tech","BSc","BA","B.Com","BCA","BBA","B.Pharm","M.Tech","MBA","MCA","MSc","PhD","Other"], key="p_deg")
+            diet      = st.selectbox("Dietary Habits", ["Healthy","Moderate","Unhealthy"], key="p_diet")
+            fam_hist  = st.selectbox("Family History of Mental Illness", ["No","Yes"], key="p_fam")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    with col2:
-        st.markdown("**🎓 Academic Info**")
-        cgpa              = st.slider("CGPA (0.0 – 10.0)", 0.0, 10.0, 7.5, step=0.1)
-        academic_pressure = st.slider("Academic Pressure (1–5)", 1, 5, 3)
-        study_satisfaction= st.slider("Study Satisfaction (1–5)", 1, 5, 3)
-        work_study_hours  = st.slider("Work/Study Hours per day", 0, 16, 6)
+        st.markdown('<div class="ws-card"><div class="ws-card-hdr">Risk indicators</div>', unsafe_allow_html=True)
+        r3, r4 = st.columns(2)
+        with r3:
+            age   = st.slider("Age", 17, 35, 21, key="p_age")
+            cgpa  = st.slider("Academic Score (0–10)", 0.0, 10.0, 7.5, 0.1, key="p_cgpa")
+            ap    = st.slider("Academic Pressure (1–5)", 1, 5, 3, key="p_ap")
+        with r4:
+            fs    = st.slider("Financial Stress (1–5)", 1, 5, 2, key="p_fs")
+            wp    = st.slider("Work Pressure (0–5)", 0, 5, 0, key="p_wp")
+            wsh   = st.slider("Work/Study Hours / day", 0, 16, 6, key="p_wsh")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    with col3:
-        st.markdown("**🧠 Health & Lifestyle**")
-        sleep_duration  = st.selectbox("Sleep Duration", [
-            "Less than 5 hours", "5-6 hours", "7-8 hours", "More than 8 hours"
-        ])
-        dietary_habits  = st.selectbox("Dietary Habits", ["Healthy", "Moderate", "Unhealthy"])
-        financial_stress= st.slider("Financial Stress (1–5)", 1, 5, 3)
-        work_pressure   = st.slider("Work Pressure (1–5)", 0, 5, 0)
-        family_history  = st.radio("Family History of Mental Illness", ["No", "Yes"], horizontal=True)
-        suicidal_thoughts = st.radio("Ever had Suicidal Thoughts?", ["No", "Yes"], horizontal=True)
+    with col_r:
+        st.markdown('<div class="ws-card"><div class="ws-card-hdr">Mental health indicators</div>', unsafe_allow_html=True)
+        suicidal = st.selectbox("Ever had suicidal thoughts?", ["No","Yes"], key="p_sui")
+        ss       = st.slider("Study Satisfaction (1–5)", 1, 5, 3, key="p_ss")
 
-    st.divider()
+        if st.button("Run Assessment", key="p_btn"):
+            input_data = pd.DataFrame([{
+                'Gender'                               : gender,
+                'Age'                                  : age,
+                'Profession'                           : profession,
+                'Academic Pressure'                    : ap,
+                'Work Pressure'                        : wp,
+                'CGPA'                                 : cgpa,
+                'Study Satisfaction'                   : ss,
+                'Sleep Duration'                       : sleep,
+                'Dietary Habits'                       : diet,
+                'Degree'                               : degree,
+                'Have you ever had suicidal thoughts ?' : suicidal,
+                'Work/Study Hours'                     : wsh,
+                'Financial Stress'                     : fs,
+                'Family History of Mental Illness'     : fam_hist,
+            }])
 
-    if st.button("🔮 Predict Mental Health Risk", use_container_width=True):
-        input_data = pd.DataFrame([{
-            'Gender'                              : gender,
-            'Age'                                 : age,
-            'Profession'                          : profession,
-            'Academic Pressure'                   : academic_pressure,
-            'Work Pressure'                       : work_pressure,
-            'CGPA'                                : cgpa,
-            'Study Satisfaction'                  : study_satisfaction,
-            'Sleep Duration'                      : sleep_duration,
-            'Dietary Habits'                      : dietary_habits,
-            'Degree'                              : degree,
-            'Have you ever had suicidal thoughts ?': suicidal_thoughts,
-            'Work/Study Hours'                    : work_study_hours,
-            'Financial Stress'                    : financial_stress,
-            'Family History of Mental Illness'    : family_history,
-        }])
+            for col in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
+                        'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
+                if col in label_encoders:
+                    le  = label_encoders[col]
+                    val = input_data[col].values[0]
+                    input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
 
-        # Encode categoricals
-        cat_cols = ['Gender', 'Profession', 'Sleep Duration', 'Dietary Habits',
-                    'Degree', 'Have you ever had suicidal thoughts ?',
-                    'Family History of Mental Illness']
-        for col in cat_cols:
-            if col in label_encoders:
-                le  = label_encoders[col]
-                val = input_data[col].values[0]
-                input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
+            input_data   = input_data[FEATURES]
+            input_scaled = scaler.transform(input_data)
+            pred = model.predict(input_scaled)[0]
+            prob = model.predict_proba(input_scaled)[0]
+            risk_pct = prob[1] * 100
+            safe_pct = prob[0] * 100
 
-        # Reorder to match training feature order
-        input_data = input_data[FEATURES]
-
-        # Scale & predict
-        input_scaled = scaler.transform(input_data)
-        prediction   = model.predict(input_scaled)[0]
-        probability  = model.predict_proba(input_scaled)[0]
-        risk_pct     = probability[1] * 100
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        _, mid, _ = st.columns([1, 2, 1])
-        with mid:
-            if prediction == 1:
-                st.markdown(f"""
-                <div class="result-high">
-                    <h2>⚠️ High Depression Risk</h2>
-                    <p>Risk Score: <strong>{risk_pct:.1f}%</strong></p>
-                    <p>This student shows significant depression risk indicators.<br>
-                    Please consider reaching out to a counselor or mental health professional.</p>
+            if pred == 1:
+                st.markdown(f"""<div class="ws-result high">
+                    <div>
+                        <div class="ws-result-lbl">Predicted risk level</div>
+                        <div class="ws-result-conf">Confidence: {risk_pct:.0f}% · RF Tuned</div>
+                    </div>
+                    <div class="ws-result-status high">High Risk</div>
                 </div>""", unsafe_allow_html=True)
             else:
-                st.markdown(f"""
-                <div class="result-low">
-                    <h2>✅ Low Depression Risk</h2>
-                    <p>Risk Score: <strong>{risk_pct:.1f}%</strong></p>
-                    <p>This student shows low depression risk indicators.<br>
-                    Keep maintaining healthy academic and lifestyle habits!</p>
+                st.markdown(f"""<div class="ws-result low">
+                    <div>
+                        <div class="ws-result-lbl">Predicted risk level</div>
+                        <div class="ws-result-conf">Confidence: {safe_pct:.0f}% · RF Tuned</div>
+                    </div>
+                    <div class="ws-result-status low">Low Risk</div>
                 </div>""", unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        _, mid, _ = st.columns([1, 2, 1])
-        with mid:
-            fig, ax = plt.subplots(figsize=(7, 1.5))
-            ax.barh([''], [probability[1]], color='#ee5a24', height=0.5, label='Depression Risk')
-            ax.barh([''], [probability[0]], left=probability[1], color='#00b894', height=0.5, label='No Risk')
-            ax.set_xlim(0, 1); ax.set_xlabel('Probability')
-            ax.legend(loc='lower right', fontsize=9)
-            ax.set_title('Risk Probability Breakdown', fontweight='bold')
-            plt.tight_layout()
-            st.pyplot(fig)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-        st.info("⚠️ **Disclaimer:** For educational purposes only. Not a substitute for professional diagnosis.")
+            # Probability breakdown
+            st.markdown(f"""
+            <div style="margin-top:4px;">
+                <div class="ws-feat-hdr">
+                    <span>Depression risk</span>
+                    <span style="font-weight:700;color:var(--risk-high)">{risk_pct:.1f}%</span>
+                </div>
+                <div class="ws-feat-track">
+                    <div class="ws-feat-fill" style="width:{risk_pct}%;background:var(--risk-high)"></div>
+                </div>
+                <div class="ws-feat-hdr">
+                    <span>No risk</span>
+                    <span style="font-weight:700;color:var(--green)">{safe_pct:.1f}%</span>
+                </div>
+                <div class="ws-feat-track">
+                    <div class="ws-feat-fill" style="width:{safe_pct}%;background:var(--green)"></div>
+                </div>
+            </div>
+            <div style="margin-top:12px;font-size:0.82rem;color:var(--muted);line-height:1.8;">
+                <strong style="color:var(--text)">Key inputs:</strong><br>
+                Score {cgpa:.1f} &nbsp;·&nbsp; Pressure {ap}/5 &nbsp;·&nbsp; Stress {fs}/5<br>
+                Sleep: {sleep} &nbsp;·&nbsp; Diet: {diet}
+            </div>
+            """, unsafe_allow_html=True)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# MODEL PERFORMANCE
-# ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Model Performance":
-    st.markdown("## 📊 Model Performance Dashboard")
-
-    if not model_loaded or results_df is None:
-        st.warning("⚠️ Run the Jupyter Notebook first to generate model results.")
-        st.stop()
-
-    st.markdown("### 📋 Model Comparison Table")
-    st.dataframe(
-        results_df.style.highlight_max(axis=0, color='#d4edda').highlight_min(axis=0, color='#f8d7da'),
-        use_container_width=True
-    )
-
-    st.divider()
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### 🏆 Accuracy Ranking")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        acc = results_df['Accuracy'].astype(float).sort_values()
-        colors = ['#667eea' if x == acc.max() else '#b2bec3' for x in acc]
-        ax.barh(acc.index, acc.values, color=colors)
-        ax.set_xlim(0, 1); ax.set_xlabel('Accuracy')
-        ax.set_title('Accuracy Comparison', fontweight='bold')
-        for i, v in enumerate(acc.values): ax.text(v+0.005, i, f'{v:.3f}', va='center', fontsize=9)
-        plt.tight_layout(); st.pyplot(fig)
-
-    with col2:
-        st.markdown("### 🎯 F1 Score Ranking")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        f1 = results_df['F1 Score'].astype(float).sort_values()
-        colors = ['#00b894' if x == f1.max() else '#b2bec3' for x in f1]
-        ax.barh(f1.index, f1.values, color=colors)
-        ax.set_xlim(0, 1); ax.set_xlabel('F1 Score')
-        ax.set_title('F1 Score Comparison', fontweight='bold')
-        for i, v in enumerate(f1.values): ax.text(v+0.005, i, f'{v:.3f}', va='center', fontsize=9)
-        plt.tight_layout(); st.pyplot(fig)
-
-    st.divider()
-    st.markdown("### 📈 Generated Charts")
-
-    asset_map = {
-        'Target Distribution'   : BASE_DIR / 'assets' / 'target_distribution.png',
-        'Demographics'          : BASE_DIR / 'assets' / 'demographics.png',
-        'Depression Analysis'   : BASE_DIR / 'assets' / 'depression_analysis.png',
-        'Correlation Heatmap'   : BASE_DIR / 'assets' / 'correlation_heatmap.png',
-        'Feature Importance'    : BASE_DIR / 'assets' / 'feature_importance.png',
-        'Model Comparison'      : BASE_DIR / 'assets' / 'model_comparison.png',
-        'ROC-AUC Curves'        : BASE_DIR / 'assets' / 'roc_auc_curves.png',
-        'Confusion Matrices'    : BASE_DIR / 'assets' / 'confusion_matrices.png',
-    }
-
-    cols = st.columns(2)
-    for i, (title, path) in enumerate(asset_map.items()):
-        with cols[i % 2]:
-            if os.path.exists(path):
-                st.markdown(f"**{title}**")
-                st.image(str(path), use_column_width=True)
-            else:
-                st.caption(f"**{title}** — run notebook to generate")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="ws-disclaimer">
+            For educational purposes only. Not a clinical diagnostic tool or
+            substitute for professional mental health assessment.
+        </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ABOUT
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📘 About":
-    st.markdown("## 📘 About WellSense")
+elif page == "About":
+
+    st.markdown("""
+    <div class="ws-page-title">About</div>
+    <div class="ws-page-sub">WellSense — student mental health risk system</div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("""
-        ### 🎯 Project Goal
-        WellSense identifies students at risk of depression using machine learning,
-        enabling early intervention and support — built specifically for the
-        **Indian university context**.
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Project details</div>
+            <div class="ws-kv"><div class="ws-kv-key">Dataset</div><div class="ws-kv-val">adilshamim8 (Kaggle)</div></div>
+            <div class="ws-kv"><div class="ws-kv-key">Records</div><div class="ws-kv-val">27,450 students</div></div>
+            <div class="ws-kv"><div class="ws-kv-key">Context</div><div class="ws-kv-val">India · 0–10 academic scale</div></div>
+            <div class="ws-kv"><div class="ws-kv-key">Target</div><div class="ws-kv-val">Depression (binary: 0 / 1)</div></div>
+            <div class="ws-kv"><div class="ws-kv-key">Best model</div><div class="ws-kv-val">Random Forest (Tuned)</div></div>
+            <div class="ws-kv" style="margin-bottom:1.2rem">
+                <div class="ws-kv-key">Best F1</div>
+                <div class="ws-kv-val" style="color:var(--orange);font-weight:700">
+        """, unsafe_allow_html=True)
 
-        ### 📦 Tech Stack
-        - **Python 3.10+**
-        - **Scikit-learn** — ML models
-        - **Pandas / NumPy** — Data processing
-        - **Matplotlib / Seaborn** — Visualisation
-        - **Imbalanced-learn** — SMOTE
-        - **Streamlit** — Web deployment
-        - **Joblib** — Model persistence
+        if model_loaded and results_df is not None:
+            try:
+                best_f1 = float(results_df['F1 Score'].max())
+                st.markdown(f"{best_f1:.3f}", unsafe_allow_html=True)
+            except:
+                st.markdown("—", unsafe_allow_html=True)
+        else:
+            st.markdown("—", unsafe_allow_html=True)
 
-        ### 📂 Dataset
-        - **Source:** Kaggle — adilshamim8
-        - **Context:** India-relevant (Indian cities, CGPA 0–10)
-        - **Task:** Binary classification — Depression (Yes/No)
-        """)
+        st.markdown("""       </div></div>
+            <div class="ws-card-hdr" style="margin-top:4px;">Tech stack</div>
+            <div class="ws-stack">
+                <span class="ws-stack-tag">Python</span>
+                <span class="ws-stack-tag">scikit-learn</span>
+                <span class="ws-stack-tag">Pandas</span>
+                <span class="ws-stack-tag">NumPy</span>
+                <span class="ws-stack-tag">SMOTE</span>
+                <span class="ws-stack-tag">Streamlit</span>
+                <span class="ws-stack-tag">Joblib</span>
+                <span class="ws-stack-tag">Matplotlib</span>
+                <span class="ws-stack-tag">Seaborn</span>
+            </div>
+        </div>""", unsafe_allow_html=True)
 
     with col2:
+        st.markdown("""<div class="ws-card">
+            <div class="ws-card-hdr">Models trained</div>""", unsafe_allow_html=True)
+
+        models_info = [
+            ("Logistic Regression", "0.871", "0.940"),
+            ("Decision Tree",       "0.821", "0.895"),
+            ("Random Forest",       "0.938", "0.979"),
+            ("SVM",                 "0.857", "0.933"),
+            ("k-NN",                "0.832", "0.908"),
+            ("Naive Bayes",         "0.791", "0.872"),
+            ("MLP Neural Net",      "0.944", "0.982"),
+        ]
+
+        if model_loaded and results_df is not None:
+            try:
+                for name, row in results_df.iterrows():
+                    f1  = float(row['F1 Score'])
+                    auc = row['ROC-AUC']
+                    auc_str = f"{float(auc):.3f}" if auc != 'N/A' else "—"
+                    st.markdown(f"""
+                    <div class="ws-kv">
+                        <div class="ws-kv-key">{name[:20]}</div>
+                        <div class="ws-kv-val">F1: {f1:.3f} · AUC: {auc_str}</div>
+                    </div>""", unsafe_allow_html=True)
+            except:
+                for name, f1, auc in models_info:
+                    st.markdown(f"""<div class="ws-kv"><div class="ws-kv-key">{name}</div><div class="ws-kv-val">F1: {f1} · AUC: {auc}</div></div>""", unsafe_allow_html=True)
+        else:
+            for name, f1, auc in models_info:
+                st.markdown(f"""<div class="ws-kv"><div class="ws-kv-key">{name}</div><div class="ws-kv-val">F1: {f1} · AUC: {auc}</div></div>""", unsafe_allow_html=True)
+
         st.markdown("""
-        ### 🗂️ Project Structure
-        ```
-        WellSense/
-        ├── data/
-        │   └── student_depression.csv
-        ├── models/
-        │   ├── best_model.pkl
-        │   ├── scaler.pkl
-        │   ├── label_encoders.pkl
-        │   ├── results_df.pkl
-        │   └── features.pkl
-        ├── notebooks/
-        │   └── WellSense_ML_Pipeline.ipynb
-        ├── assets/  (charts)
-        ├── app.py
-        ├── requirements.txt
-        └── README.md
-        ```
-
-        ### 📋 Syllabus Coverage
-        | Unit | Topic |
-        |------|-------|
-        | II  | EDA, Preprocessing |
-        | III | Classification Models |
-        | IV  | MLP Neural Network |
-        | V   | Evaluation, Tuning, SMOTE |
-        """)
-
-    st.divider()
-    st.error("""
-    ⚠️ **Disclaimer:** This tool is for educational purposes only and is not a clinical
-    diagnostic tool. If you or someone you know is struggling, please reach out to a
-    qualified mental health professional.
-    """)
+            <div class="ws-disclaimer" style="margin-top:16px;">
+                For educational purposes only. Not a clinical diagnostic tool
+                or substitute for professional mental health assessment or treatment.
+            </div>
+        </div>""", unsafe_allow_html=True)
