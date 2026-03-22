@@ -281,14 +281,12 @@ def load_artifacts():
         encoders = joblib.load(BASE_DIR / 'models' / 'label_encoders.pkl')
         features = joblib.load(BASE_DIR / 'models' / 'features.pkl')
         results  = joblib.load(BASE_DIR / 'models' / 'results_df.pkl')
-        return model, scaler, encoders, results, features, True
+        return model, scaler, encoders, features, results, True
     except Exception as e:
         return None, None, None, None, None, False
 
-# Clear cache to force fresh load
-load_artifacts.clear()
-model, scaler, label_encoders, results_df, FEATURES, model_loaded = load_artifacts()
 
+model, scaler, label_encoders, FEATURES, results_df, model_loaded = load_artifacts()
 # ── Matplotlib warm theme ─────────────────────────────────────────────────────
 plt.rcParams.update({
     'figure.facecolor' : '#FFFFFF',
