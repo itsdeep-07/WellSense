@@ -568,9 +568,11 @@ elif page == "Model Metrics":
     if model_loaded and results_df is not None:
         model_options = results_df.sort_values('F1 Score', ascending=False).index.tolist()
     else:
-        model_options = ["Random Forest (Tuned)","MLP Neural Net","Random Forest",
-                         "Logistic Regression","SVM","k-NN","Naive Bayes"]
+        model_options = ["Random Forest","Logistic Regression","SVM",
+                     "Naive Bayes","MLP Neural Net","k-NN","Decision Tree"]
     sel_model = st.selectbox("Active classifier:", model_options, label_visibility="collapsed", key="m_sel")
+    
+   
 
     # Pull real metrics if available
     f1_val = prec_val = rec_val = auc_val = "—"
