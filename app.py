@@ -182,6 +182,17 @@ html, body,
 div[data-baseweb="select"] > div { background: var(--cream) !important; border-color: rgba(42,51,36,0.2) !important; border-radius: var(--radius-sm) !important; }
 div[data-baseweb="select"] * { font-family: var(--font-b) !important; color: var(--text) !important; }
 
+/* ── Force all form labels visible ── */
+label, .stSelectbox label, .stSlider label, .stRadio label,
+[data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p,
+.stSelectbox > label, .stSlider > label {
+    color: var(--text) !important;
+    font-family: var(--font-b) !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    opacity: 1 !important;
+}
+
 /* ── Primary button ── */
 .stButton > button {
     width: 100%; padding: 12px !important;
@@ -553,21 +564,23 @@ elif page == "Model Metrics":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Controls bar — model selector
-    model_options = ["Random Forest (Tuned)","MLP Neural Net","Random Forest",
-                     "Logistic Regression","SVM","k-NN","Naive Bayes"]
+    # Controls bar — pull options directly from real results_df index
+    if model_loaded and results_df is not None:
+        model_options = results_df.sort_values('F1 Score', ascending=False).index.tolist()
+    else:
+        model_options = ["Random Forest (Tuned)","MLP Neural Net","Random Forest",
+                         "Logistic Regression","SVM","k-NN","Naive Bayes"]
     sel_model = st.selectbox("Active classifier:", model_options, label_visibility="collapsed", key="m_sel")
 
     # Pull real metrics if available
     f1_val = prec_val = rec_val = auc_val = "—"
     if model_loaded and results_df is not None:
         try:
-            key = sel_model if sel_model in results_df.index else results_df.index[0]
-            row = results_df.loc[key]
+            row      = results_df.loc[sel_model]
             f1_val   = f"{float(row['F1 Score']):.3f}"
             prec_val = f"{float(row['Precision'])*100:.1f}%"
             rec_val  = f"{float(row['Recall'])*100:.1f}%"
-            auc_val  = f"{float(row['ROC-AUC']):.3f}" if row['ROC-AUC'] != 'N/A' else "—"
+            auc_val  = f"{float(row['ROC-AUC']):.3f}" if str(row['ROC-AUC']) != 'N/A' else "—"
         except: pass
 
     # Metric cards
