@@ -8,7 +8,15 @@ import joblib
 import os
 from pathlib import Path
 import warnings
+import math
 warnings.filterwarnings('ignore')
+
+# Optional: SHAP for model explainability
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 
 BASE_DIR = Path(__file__).parent
 
@@ -301,6 +309,73 @@ plt.rcParams.update({
     'grid.linewidth'   : 0.8,
     'figure.dpi'       : 130,
 })
+
+
+# ── Helper : animated SVG semicircle gauge ────────────────────────────────────
+def make_gauge_html(risk_pct: float) -> str:
+    """Return inline HTML+SVG for a semicircular gauge showing risk_pct (0–100)."""
+    p     = max(0.01, min(0.99, float(risk_pct) / 100.0))
+    angle = math.pi * (1.0 - p)
+    ex    = 100.0 + 80.0 * math.cos(angle)
+    ey    = 100.0 - 80.0 * math.sin(angle)
+    nx    = 100.0 + 53.0 * math.cos(angle)
+    ny    = 100.0 - 53.0 * math.sin(angle)
+    if risk_pct < 35:
+        clr, lbl = "#3B4FD4", "Low Risk"
+    elif risk_pct < 65:
+        clr, lbl = "#F59E0B", "Moderate"
+    else:
+        clr, lbl = "#D94040", "High Risk"
+    return f"""
+<div style="text-align:center;padding:16px 0 4px;">
+  <svg viewBox="0 0 200 130" style="width:210px;max-width:100%;overflow:visible">
+    <path d="M 20 100 A 80 80 0 0 1 180 100"
+          fill="none" stroke="#E4E8F3" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 20 100 A 80 80 0 0 1 {ex:.2f} {ey:.2f}"
+          fill="none" stroke="{clr}" stroke-width="14" stroke-linecap="round"/>
+    <line x1="100" y1="100" x2="{nx:.2f}" y2="{ny:.2f}"
+          stroke="{clr}" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="100" cy="100" r="6" fill="{clr}"/>
+    <circle cx="100" cy="100" r="2.5" fill="white"/>
+    <text x="100" y="122" text-anchor="middle"
+          font-family="Oswald,sans-serif" font-size="24" font-weight="600" fill="{clr}">{risk_pct:.0f}%</text>
+    <text x="18" y="115" text-anchor="middle"
+          font-family="Nunito,sans-serif" font-size="9" fill="#AAB4C8">0</text>
+    <text x="182" y="115" text-anchor="middle"
+          font-family="Nunito,sans-serif" font-size="9" fill="#AAB4C8">100</text>
+  </svg>
+  <div style="font-size:0.73rem;color:{clr};font-weight:800;text-transform:uppercase;
+              letter-spacing:0.6px;margin-top:0;">{lbl}</div>
+</div>"""
+
+
+@st.cache_resource
+def get_shap_explainer(_model):
+    """Create and cache a SHAP TreeExplainer (expensive first-time cost)."""
+    if SHAP_AVAILABLE and _model is not None:
+        try:
+            return shap.TreeExplainer(_model)
+        except Exception:
+            pass
+    return None
+
+
+_FEATURE_DISPLAY = {
+    'Gender'                               : 'Gender',
+    'Age'                                  : 'Age',
+    'Profession'                           : 'Profession',
+    'Academic Pressure'                    : 'Academic Pressure',
+    'Work Pressure'                        : 'Work Pressure',
+    'CGPA'                                 : 'Academic Score (CGPA)',
+    'Study Satisfaction'                   : 'Study Satisfaction',
+    'Sleep Duration'                       : 'Sleep Duration',
+    'Dietary Habits'                       : 'Dietary Habits',
+    'Degree'                               : 'Degree / Qualification',
+    'Have you ever had suicidal thoughts ?' : 'Suicidal Thoughts',
+    'Work/Study Hours'                     : 'Work / Study Hours',
+    'Financial Stress'                     : 'Financial Stress',
+    'Family History of Mental Illness'     : 'Family History',
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -665,6 +740,52 @@ elif page == "Model Metrics":
         st.image(str(asset_mc), use_column_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # ── Hyperparameters Section ──
+    st.markdown("""
+        <div class="ws-card">
+            <div class="ws-card-hdr">Hyperparameter Optimization Space</div>
+            <div style="font-size: 0.85rem; color: var(--text); line-height: 1.6;">
+                <p>To prevent overfitting while balancing SMOTE-resampled training times, Randomised Grid Search with 3-fold cross-validation was employed (n_iter=5). The table below lists the hyperparameter search spaces used for optimizing each model.</p>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem;">
+                    <tr style="border-bottom: 2px solid var(--cream-dark); color: var(--muted); text-transform: uppercase;">
+                        <th style="padding: 8px 12px; text-align: left;">Algorithm</th>
+                        <th style="padding: 8px 12px; text-align: left;">Search Space / Parameters</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">Random Forest</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>n_estimators</code>: [50, 100, 200]<br><code>max_depth</code>: [None, 10, 20, 30]<br><code>min_samples_split</code>: [2, 5, 10]<br><code>min_samples_leaf</code>: [1, 2, 4]<br><code>bootstrap</code>: [True, False]</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">Logistic Regression</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>max_iter</code>: [1000]<br><code>C</code>: logspace(-3, 3, 7)<br><code>penalty</code>: ['l1', 'l2']<br><code>solver</code>: ['liblinear', 'saga']</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">SVM</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>probability</code>: [True]<br><code>C</code>: [0.1, 1, 10]<br><code>gamma</code>: ['scale', 'auto', 0.1, 1]<br><code>kernel</code>: ['rbf', 'linear', 'poly']</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">MLP Neural Net</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>hidden_layer_sizes</code>: [(50,), (100,), (100,50)]<br><code>activation</code>: ['relu', 'tanh']<br><code>alpha</code>: [0.0001, 0.001, 0.01]<br><code>max_iter</code>: [500]</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">Decision Tree</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>criterion</code>: ['gini', 'entropy']<br><code>max_depth</code>: [None, 10, 20, 30]<br><code>min_samples_split</code>: [2, 5, 10]</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid var(--cream-dark);">
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">k-Nearest Neighbors</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>n_neighbors</code>: [3, 5, 7, 9, 11]<br><code>weights</code>: ['uniform', 'distance']<br><code>metric</code>: ['euclidean', 'manhattan']</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 12px; font-weight: 700; color: var(--green);">Naive Bayes</td>
+                        <td style="padding: 8px 12px; color: var(--muted);"><code>var_smoothing</code>: logspace(-10, -8, 5)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PREDICT
@@ -714,7 +835,7 @@ elif page == "Predict":
         suicidal = st.selectbox("Ever had suicidal thoughts?", ["No","Yes"], key="p_sui")
         ss       = st.slider("Study Satisfaction (1–5)", 1, 5, 3, key="p_ss")
 
-        if st.button("Run Assessment", key="p_btn"):
+        if st.button("▶  Run Assessment", key="p_btn"):
             input_data = pd.DataFrame([{
                 'Gender'                               : gender,
                 'Age'                                  : age,
@@ -731,71 +852,183 @@ elif page == "Predict":
                 'Financial Stress'                     : fs,
                 'Family History of Mental Illness'     : fam_hist,
             }])
-
-            for col in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
-                        'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
-                if col in label_encoders:
-                    le  = label_encoders[col]
-                    val = input_data[col].values[0]
-                    input_data[col] = le.transform([val])[0] if val in le.classes_ else 0
-
+            for col_name in ['Gender','Profession','Sleep Duration','Dietary Habits','Degree',
+                             'Have you ever had suicidal thoughts ?','Family History of Mental Illness']:
+                if col_name in label_encoders:
+                    le  = label_encoders[col_name]
+                    val = input_data[col_name].values[0]
+                    input_data[col_name] = le.transform([val])[0] if val in le.classes_ else 0
             input_data   = input_data[FEATURES]
             input_scaled = scaler.transform(input_data)
-            pred = model.predict(input_scaled)[0]
-            prob = model.predict_proba(input_scaled)[0]
-            risk_pct = prob[1] * 100
-            safe_pct = prob[0] * 100
-
-            if pred == 1:
-                st.markdown(f"""<div class="ws-result high">
-                    <div>
-                        <div class="ws-result-lbl">Predicted risk level</div>
-                        <div class="ws-result-conf">Confidence: {risk_pct:.0f}% · RF Tuned</div>
-                    </div>
+            pred  = model.predict(input_scaled)[0]
+            prob  = model.predict_proba(input_scaled)[0]
+            # ── Compute SHAP once at click-time (cached explainer) ────────────
+            shap_vals = None
+            if SHAP_AVAILABLE:
+                try:
+                    _exp = get_shap_explainer(model)
+                    if _exp is not None:
+                        _sv = _exp.shap_values(input_scaled)
+                        if isinstance(_sv, list):
+                            shap_vals = _sv[1][0] if len(_sv) > 1 else _sv[0][0]
+                        else:
+                            if len(_sv.shape) == 3:
+                                shap_vals = _sv[0, :, 1] if _sv.shape[2] > 1 else _sv[0, :, 0]
+                            else:
+                                shap_vals = _sv[0]
+                except Exception:
+                    shap_vals = None
+            # ── Reset What-If slider keys so they reinitialise to new values ──
+            for _wk in ['wi_ap', 'wi_fs', 'wi_cgpa', 'wi_ss', 'wi_sleep', 'wi_sui', 'wi_wsh', 'wi_wp']:
+                st.session_state.pop(_wk, None)
+            st.session_state['ws_pred_data'] = {
+                'pred'        : int(pred),
+                'risk_pct'    : float(prob[1] * 100),
+                'safe_pct'    : float(prob[0] * 100),
+                'input_data'  : input_data.copy(),
+                'input_scaled': input_scaled,
+                'shap_vals'   : shap_vals,
+                'ap': ap, 'fs': fs, 'ss': ss, 'wsh': wsh, 'cgpa': cgpa, 'sleep': sleep,
+                'suicidal'    : suicidal,
+                'wp': wp,
+            }
+            
+        if 'ws_pred_data' in st.session_state:
+            d = st.session_state['ws_pred_data']
+            st.markdown(make_gauge_html(d['risk_pct']), unsafe_allow_html=True)
+            if d['pred'] == 1:
+                st.markdown(f"""<div class="ws-result high" style="margin-top:-5px;">
+                    <div><div class="ws-result-lbl">Predicted risk level</div>
+                    <div class="ws-result-conf">Confidence: {d['risk_pct']:.0f}% · RF Tuned</div></div>
                     <div class="ws-result-status high">High Risk</div>
                 </div>""", unsafe_allow_html=True)
             else:
-                st.markdown(f"""<div class="ws-result low">
-                    <div>
-                        <div class="ws-result-lbl">Predicted risk level</div>
-                        <div class="ws-result-conf">Confidence: {safe_pct:.0f}% · RF Tuned</div>
-                    </div>
+                st.markdown(f"""<div class="ws-result low" style="margin-top:-5px;">
+                    <div><div class="ws-result-lbl">Predicted risk level</div>
+                    <div class="ws-result-conf">Confidence: {d['safe_pct']:.0f}% · RF Tuned</div></div>
                     <div class="ws-result-status low">Low Risk</div>
                 </div>""", unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # Probability breakdown
-            st.markdown(f"""
-            <div style="margin-top:4px;">
-                <div class="ws-feat-hdr">
-                    <span>Depression risk</span>
-                    <span style="font-weight:700;color:var(--risk-high)">{risk_pct:.1f}%</span>
-                </div>
-                <div class="ws-feat-track">
-                    <div class="ws-feat-fill" style="width:{risk_pct}%;background:var(--risk-high)"></div>
-                </div>
-                <div class="ws-feat-hdr">
-                    <span>No risk</span>
-                    <span style="font-weight:700;color:var(--green)">{safe_pct:.1f}%</span>
-                </div>
-                <div class="ws-feat-track">
-                    <div class="ws-feat-fill" style="width:{safe_pct}%;background:var(--green)"></div>
-                </div>
-            </div>
-            <div style="margin-top:12px;font-size:0.82rem;color:var(--muted);line-height:1.8;">
-                <strong style="color:var(--text)">Key inputs:</strong><br>
-                Score {cgpa:.1f} &nbsp;·&nbsp; Pressure {ap}/5 &nbsp;·&nbsp; Stress {fs}/5<br>
-                Sleep: {sleep} &nbsp;·&nbsp; Diet: {diet}
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown("""<div class="ws-disclaimer" style="margin-top:12px;">
+                For educational purposes only. Not a clinical diagnostic tool.
+            </div>""", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="ws-disclaimer">
-            For educational purposes only. Not a clinical diagnostic tool or
-            substitute for professional mental health assessment.
-        </div>""", unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # RESULTS — full-width section, persists across What-If reruns
+    # ══════════════════════════════════════════════════════════════════════════
+    if 'ws_pred_data' in st.session_state:
+        d        = st.session_state['ws_pred_data']
+        risk_pct = d['risk_pct']
+        safe_pct = d['safe_pct']
+        pred_val = d['pred']
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Section 2: SHAP Explanation ────────────────────────────────────
+        sv_stored = d.get('shap_vals')
+        if sv_stored is not None and FEATURES:
+            st.markdown(
+                '<div class="ws-card"><div class="ws-card-hdr">'
+                '🔍 Why this prediction? &nbsp;<span class="ws-tag ws-tag-green">SHAP values</span>'
+                '</div>',
+                unsafe_allow_html=True)
+            disp_names = [_FEATURE_DISPLAY.get(f, f) for f in FEATURES]
+            sv_flat    = np.array(sv_stored).flatten()          # ensure 1-D
+            # Guard: SHAP values must match feature count
+            n_feat     = min(len(sv_flat), len(disp_names))
+            sv_flat    = sv_flat[:n_feat]
+            disp_names = disp_names[:n_feat]
+            sort_idx   = np.argsort(np.abs(sv_flat)).tolist()   # plain Python ints
+            vals_s     = [float(sv_flat[i]) for i in sort_idx]
+            names_s    = [disp_names[i] for i in sort_idx]
+            bar_clrs   = ['#D94040' if v > 0 else '#3B4FD4' for v in vals_s]
+            fig_s, ax_s = plt.subplots(figsize=(8, 4.2))
+            ax_s.barh(names_s, vals_s, color=bar_clrs, alpha=0.85, edgecolor='none')
+            ax_s.axvline(0, color='#2A3324', linewidth=0.8, alpha=0.35)
+            ax_s.set_xlabel('\u2190 Lowers depression risk                          Raises depression risk \u2192',
+                            fontsize=8.5, color='#6B7599')
+            ax_s.set_title('Feature contributions to this prediction',
+                           fontsize=10.5, fontweight='bold', color='#1A1F4E', pad=8)
+            ax_s.spines[['top', 'right', 'left']].set_visible(False)
+            ax_s.tick_params(axis='y', length=0, labelsize=9)
+            ax_s.tick_params(axis='x', labelsize=8)
+            ax_s.set_facecolor('#FFFFFF'); fig_s.patch.set_facecolor('#FFFFFF')
+            fig_s.tight_layout()
+            st.pyplot(fig_s, use_container_width=True); plt.close(fig_s)
+            risk_drivers = [names_s[i] for i in range(len(vals_s)-1, -1, -1) if vals_s[i] >  0.005][:3]
+            safe_drivers = [names_s[i] for i in range(len(vals_s))            if vals_s[i] < -0.005][:2]
+            if risk_drivers:
+                rd = " &nbsp;&bull;&nbsp; ".join(f"<b style='color:var(--risk-high)'>{n}</b>" for n in risk_drivers)
+                st.markdown(f"<p style='font-size:0.83rem;color:var(--muted);margin:6px 0 2px;'>\u2b06\ufe0f Main risk factors: {rd}</p>",
+                            unsafe_allow_html=True)
+            if safe_drivers:
+                sd = " &nbsp;&bull;&nbsp; ".join(f"<b style='color:var(--green)'>{n}</b>" for n in safe_drivers)
+                st.markdown(f"<p style='font-size:0.83rem;color:var(--muted);margin:0 0 6px;'>\u2b07\ufe0f Protective factors: {sd}</p>",
+                            unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Section 3: What-If Analysis ─────────────────────────────────────
+        with st.expander("\U0001f504 What-If Analysis \u2014 Adjust key factors and see how risk changes"):
+            st.markdown(
+                "<p style='font-size:0.85rem;color:var(--muted);margin-bottom:14px;'>"
+                "Move the sliders to explore how changing individual factors affects the predicted risk score.</p>",
+                unsafe_allow_html=True)
+            wi_c1, wi_c2, wi_c3 = st.columns(3)
+            with wi_c1:
+                wi_ap = st.slider("Academic Pressure (1–5)", 1, 5,   int(d['ap']),        key="wi_ap")
+                wi_fs = st.slider("Financial Stress (1–5)",  1, 5,   int(d['fs']),        key="wi_fs")
+                wi_ss = st.slider("Study Satisfaction (1–5)", 1, 5,  int(d['ss']),        key="wi_ss")
+            with wi_c2:
+                wi_cgpa = st.slider("Academic Score (0–10)", 0.0, 10.0, float(d['cgpa']), 0.1, key="wi_cgpa")
+                wi_wsh  = st.slider("Work/Study Hours / day", 0, 16, int(d['wsh']),      key="wi_wsh")
+                # Added the missing work pressure
+                wi_wp   = st.slider("Work Pressure (0–5)", 0, 5, int(d.get('wp', 0)),    key="wi_wp")
+            with wi_c3:
+                _sopts   = ["7-8 hours", "5-6 hours", "Less than 5 hours", "More than 8 hours"]
+                _sidx    = _sopts.index(d['sleep']) if d['sleep'] in _sopts else 0
+                wi_sleep = st.selectbox("Sleep Duration", _sopts, index=_sidx,      key="wi_sleep")
+                sidx_sui = ["No", "Yes"].index(d['suicidal']) if d['suicidal'] in ["No", "Yes"] else 0
+                wi_sui  = st.selectbox("Ever had suicidal thoughts?", ["No", "Yes"], index=sidx_sui, key="wi_sui")
+            # Build modified feature vector
+            wi_inp = d['input_data'].copy()
+            wi_inp['Academic Pressure']  = wi_ap
+            wi_inp['Financial Stress']   = wi_fs
+            wi_inp['Study Satisfaction'] = wi_ss
+            wi_inp['CGPA']               = wi_cgpa
+            wi_inp['Work/Study Hours']   = wi_wsh
+            wi_inp['Work Pressure']      = wi_wp
+            if 'Sleep Duration' in label_encoders:
+                _le_sl = label_encoders['Sleep Duration']
+                wi_inp['Sleep Duration'] = (_le_sl.transform([wi_sleep])[0]
+                                            if wi_sleep in _le_sl.classes_ else 0)
+            if 'Have you ever had suicidal thoughts ?' in label_encoders:
+                _le_sui = label_encoders['Have you ever had suicidal thoughts ?']
+                wi_inp['Have you ever had suicidal thoughts ?'] = (_le_sui.transform([wi_sui])[0]
+                                            if wi_sui in _le_sui.classes_ else 0)
+            wi_sc   = scaler.transform(wi_inp[FEATURES])
+            wi_prob = model.predict_proba(wi_sc)[0]
+            wi_risk = wi_prob[1] * 100
+            delta   = wi_risk - risk_pct
+            wc_g, wc_d = st.columns([1, 2])
+            with wc_g:
+                st.markdown(make_gauge_html(wi_risk), unsafe_allow_html=True)
+            with wc_d:
+                d_clr   = "#D94040" if delta >  0.5 else ("#3B4FD4" if delta < -0.5 else "#6B7599")
+                d_arrow = "\u25b2"  if delta >  0.5 else ("\u25bc"  if delta < -0.5 else "\u2014")
+                d_word  = "higher"  if delta >  0.5 else ("lower"   if delta < -0.5 else "unchanged")
+                st.markdown(
+                    f"""<div style="padding:16px 18px;background:var(--cream-dark);
+                                   border-radius:var(--radius-md);margin-top:10px;">
+                            <div style="font-size:0.73rem;color:var(--muted);font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.4px;">What-If Risk</div>
+                            <div style="font-family:'Oswald',sans-serif;font-size:2.6rem;
+                                        color:{d_clr};line-height:1.15;">{wi_risk:.1f}%</div>
+                            <div style="font-size:0.88rem;color:{d_clr};font-weight:600;margin-top:4px;">
+                                {d_arrow} {abs(delta):.1f} pts {d_word} vs original ({risk_pct:.1f}%)
+                            </div>
+                    </div>""",
+                    unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
